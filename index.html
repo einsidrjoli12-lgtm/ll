@@ -165,6 +165,12 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
 .diff b { font-family: var(--font-display); font-weight: 400; font-size: 1.05rem; display: flex; gap: 8px; align-items: center; }
 .diff b em { font-style: normal; color: var(--glow); letter-spacing: 2px; font-size: 0.8rem; }
 .diff span { font-size: 0.78rem; color: var(--muted); line-height: 1.35; }
+.diff .rec { color: var(--glow); font-weight: 800; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.btn.big { font-size: 1.25rem; padding: 16px 34px; }
+.record { color: var(--glow); font-weight: 800; }
+.stat b { display: inline-block; }
+.stat b.flash { animation: flash 0.45s ease-in-out 4; }
+@keyframes flash { 50% { color: var(--foam); transform: scale(1.3); } }
 .settings { display: flex; flex-direction: column; gap: 14px; width: min(100%, 270px); }
 .setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-weight: 700; }
 .switch {
@@ -204,6 +210,7 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
 }
 @media (prefers-reduced-motion: reduce) {
   .switch, .switch::after { transition: none; }
+  .stat b.flash { animation: none; }
 }
 </style>
 
@@ -222,7 +229,14 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
   <div class="tank">
     <canvas id="game" aria-label="Bubble shooter board"></canvas>
     <div class="overlay" id="overlay">
-      <section class="screen" id="scr-main">
+      <section class="screen" id="scr-start">
+        <h2 class="logo">Bubble<br>Reef</h2>
+        <p class="tagline">Pop the reef before it floods.</p>
+        <button class="btn primary big" id="btnStart" type="button" data-sfx="none">Tap to start</button>
+        <p class="small">Sound on · turn your volume up</p>
+      </section>
+
+      <section class="screen" id="scr-main" hidden>
         <h2 class="logo">Bubble<br>Reef</h2>
         <p class="tagline">Pop the reef before it floods.</p>
         <div class="stack">
@@ -235,21 +249,23 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
       <section class="screen" id="scr-diff" hidden>
         <h2>Choose difficulty</h2>
         <div class="stack wide">
-          <button class="diff" type="button" data-diff="easy"><b>Easy <em>●○○</em></b><span>3 colors, 8 shots before a new row, full aim line</span></button>
-          <button class="diff" type="button" data-diff="normal"><b>Normal <em>●●○</em></b><span>4 colors, 6 shots before a new row, 1.5× points</span></button>
-          <button class="diff" type="button" data-diff="hard"><b>Hard <em>●●●</em></b><span>5 colors, 4 shots before a new row, short aim line, 2× points</span></button>
+          <button class="diff" type="button" data-diff="easy" data-sfx="none"><b>Easy <em>●○○</em></b><span>3 colors, 8 shots before a new row, full aim line</span><span class="rec" id="rec-easy">High score 0</span></button>
+          <button class="diff" type="button" data-diff="normal" data-sfx="none"><b>Normal <em>●●○</em></b><span>4 colors, 6 shots before a new row, 1.5× points</span><span class="rec" id="rec-normal">High score 0</span></button>
+          <button class="diff" type="button" data-diff="hard" data-sfx="none"><b>Hard <em>●●●</em></b><span>5 colors, 4 shots before a new row, short aim line, 2× points</span><span class="rec" id="rec-hard">High score 0</span></button>
         </div>
-        <button class="btn ghost" id="diffBack" type="button">Back</button>
+        <button class="btn ghost" id="diffBack" type="button" data-sfx="back">Back</button>
       </section>
 
       <section class="screen" id="scr-settings" hidden>
         <h2>Settings</h2>
         <div class="settings">
-          <div class="setting"><span id="lblSound">Sound effects</span><button class="switch" id="tSound" type="button" role="switch" aria-labelledby="lblSound" aria-checked="true"></button></div>
-          <div class="setting"><span id="lblMusic">Music</span><button class="switch" id="tMusic" type="button" role="switch" aria-labelledby="lblMusic" aria-checked="true"></button></div>
-          <div class="setting"><label for="vol">Volume</label><input type="range" id="vol" min="0" max="100" value="70"></div>
+          <div class="setting"><span id="lblSound">Sound effects</span><button class="switch" id="tSound" type="button" role="switch" aria-labelledby="lblSound" aria-checked="true" data-sfx="none"></button></div>
+          <div class="setting"><label for="sfxVol">Effects volume</label><input type="range" id="sfxVol" min="0" max="100" value="80"></div>
+          <div class="setting"><span id="lblMusic">Music</span><button class="switch" id="tMusic" type="button" role="switch" aria-labelledby="lblMusic" aria-checked="true" data-sfx="none"></button></div>
+          <div class="setting"><label for="musicVol">Music volume</label><input type="range" id="musicVol" min="0" max="100" value="60"></div>
+          <button class="btn" id="btnTest" type="button" data-sfx="none">Play test sound</button>
         </div>
-        <button class="btn ghost" id="settingsBack" type="button">Back</button>
+        <button class="btn ghost" id="settingsBack" type="button" data-sfx="back">Back</button>
       </section>
 
       <section class="screen" id="scr-pause" hidden>
@@ -257,12 +273,13 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
         <div class="stack">
           <button class="btn primary" id="btnResume" type="button">Resume</button>
           <button class="btn" id="btnPauseSettings" type="button">Settings</button>
-          <button class="btn" id="btnQuit" type="button">Quit to menu</button>
+          <button class="btn" id="btnQuit" type="button" data-sfx="back">Quit to menu</button>
         </div>
       </section>
 
       <section class="screen" id="scr-result" hidden>
         <h2 id="resTitle">Reef cleared</h2>
+        <p class="record" id="resRecord" hidden></p>
         <p id="resText"></p>
         <div class="stack">
           <button class="btn primary" id="resBtn" type="button">Next level</button>
@@ -322,108 +339,180 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
 
   // ---------- saved data ----------
   let bests = { easy: 0, normal: 0, hard: 0 };
-  let settings = { sound: true, music: true, volume: 70 };
+  let settings = { sound: true, music: true, sfxVol: 80, musicVol: 60 };
   try { Object.assign(bests, JSON.parse(localStorage.getItem('bubble-reef-bests') || '{}')); } catch (e) {}
   try { Object.assign(settings, JSON.parse(localStorage.getItem('bubble-reef-settings') || '{}')); } catch (e) {}
   const saveBests = () => { try { localStorage.setItem('bubble-reef-bests', JSON.stringify(bests)); } catch (e) {} };
   const saveSettings = () => { try { localStorage.setItem('bubble-reef-settings', JSON.stringify(settings)); } catch (e) {} };
 
   // ---------- audio ----------
-  const audio = { ctx: null };
-  const STEP = 60 / 92 / 2; // eighth notes at 92 bpm
-  const PROG = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]]; // Am F C G
+  // All sound is synthesized with Web Audio. Browsers keep audio locked until a tap or key press,
+  // so every early gesture creates/resumes the context until it is actually running.
+  const audio = { ctx: null, duck: 1, iosLoop: false };
+  let track = 'menu', mStep = 0, mNext = 0, danger = false;
   const NOTE = n => 440 * Math.pow(2, (n - 69) / 12);
-  let mStep = 0, mNext = 0;
+  const TRACKS = {
+    menu: { bpm: 72, prog: [[50, 57, 60, 65], [46, 53, 57, 62], [43, 50, 55, 58], [45, 52, 57, 61]], arp: 0.45, drums: false },
+    game: { bpm: 104, prog: [[57, 60, 64, 67], [53, 57, 60, 64], [48, 52, 55, 59], [55, 59, 62, 65]], arp: 0.8, drums: true },
+  };
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-  function initAudio() {
+  function ensureAudio() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
-    if (audio.ctx) { if (audio.ctx.state === 'suspended') audio.ctx.resume(); return; }
-    const c = new AC();
-    audio.ctx = c;
-    audio.master = c.createGain(); audio.master.connect(c.destination);
-    audio.sfx = c.createGain(); audio.sfx.connect(audio.master);
-    audio.music = c.createGain(); audio.music.connect(audio.master);
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400; lp.connect(audio.music);
-    const echo = c.createDelay(); echo.delayTime.value = STEP * 3;
-    const fb = c.createGain(); fb.gain.value = 0.32;
-    echo.connect(fb); fb.connect(echo); echo.connect(lp);
-    audio.musicIn = lp; audio.echo = echo;
+    if (!audio.ctx) {
+      let c;
+      try { c = new AC(); } catch (e) { return; }
+      audio.ctx = c;
+      const comp = c.createDynamicsCompressor();
+      comp.connect(c.destination);
+      audio.master = c.createGain(); audio.master.gain.value = 0.9; audio.master.connect(comp);
+      audio.sfx = c.createGain(); audio.sfx.connect(audio.master);
+      audio.music = c.createGain(); audio.music.gain.value = 0; audio.music.connect(audio.master);
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600; lp.connect(audio.music);
+      const echo = c.createDelay(1); echo.delayTime.value = 0.36;
+      const fb = c.createGain(); fb.gain.value = 0.3;
+      echo.connect(fb); fb.connect(echo); echo.connect(lp);
+      audio.musicIn = lp; audio.echo = echo;
+      const buf = c.createBuffer(1, c.sampleRate, c.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      audio.noise = buf;
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+      mNext = c.currentTime + 0.1;
+      setInterval(scheduleMusic, 25);
+    }
+    if (audio.ctx.state !== 'running') {
+      audio.ctx.resume().then(applyAudio).catch(() => {});
+      // a silent buffer started inside the gesture unlocks iOS Safari
+      try {
+        const s = audio.ctx.createBufferSource();
+        s.buffer = audio.ctx.createBuffer(1, 1, 22050);
+        s.connect(audio.ctx.destination);
+        s.start(0);
+      } catch (e) {}
+    }
+    // on iPhone, a playing media element makes Web Audio ignore the silent switch
+    if (isIOS && !navigator.audioSession && !audio.iosLoop) { audio.iosLoop = true; playSilentLoop(); }
     applyAudio();
-    mNext = c.currentTime + 0.15;
-    setInterval(scheduleMusic, 25);
+  }
+
+  function playSilentLoop() {
+    try {
+      const n = 4410, b = new ArrayBuffer(44 + n * 2), v = new DataView(b);
+      const w = (o, s) => [...s].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+      w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+      v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 44100, true); v.setUint32(28, 88200, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+      w(36, 'data'); v.setUint32(40, n * 2, true);
+      const el = new Audio(URL.createObjectURL(new Blob([b], { type: 'audio/wav' })));
+      el.loop = true;
+      el.setAttribute('playsinline', '');
+      el.play().catch(() => { audio.iosLoop = false; });
+    } catch (e) {}
   }
 
   function applyAudio() {
     if (!audio.ctx) return;
     const t = audio.ctx.currentTime;
-    audio.master.gain.setTargetAtTime(settings.volume / 100, t, 0.05);
-    audio.sfx.gain.setTargetAtTime(settings.sound ? 1 : 0, t, 0.03);
-    audio.music.gain.setTargetAtTime(settings.music ? 0.6 : 0, t, 0.25);
+    audio.sfx.gain.setTargetAtTime(settings.sound ? settings.sfxVol / 100 : 0, t, 0.02);
+    audio.music.gain.setTargetAtTime(settings.music ? (settings.musicVol / 100) * 0.8 * audio.duck : 0, t, 0.2);
   }
 
-  function tone({ freq, to, type = 'sine', dur = 0.12, vol = 0.2, delay = 0, attack = 0.005 }) {
-    if (!audio.ctx || !settings.sound || audio.ctx.state !== 'running') return;
-    const c = audio.ctx, t = c.currentTime + delay;
+  function tone({ freq, to, type = 'sine', dur = 0.12, vol = 0.2, delay = 0, attack = 0.005, at, out, wet }) {
+    if (!audio.ctx) return;
+    const c = audio.ctx, t = at ?? c.currentTime + delay;
     const o = c.createOscillator(), g = c.createGain();
     o.type = type;
     o.frequency.setValueAtTime(freq, t);
     if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
-    g.gain.setValueAtTime(0, t);
+    g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(vol, t + attack);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(audio.sfx);
-    o.start(t); o.stop(t + dur + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(dur, attack + 0.02));
+    o.connect(g);
+    g.connect(out || audio.sfx);
+    if (wet) g.connect(audio.echo);
+    o.start(t);
+    o.stop(t + dur + 0.05);
   }
+
+  function noise({ dur = 0.05, vol = 0.1, delay = 0, filter = 'highpass', freq = 6000, q = 1, at, out }) {
+    if (!audio.ctx) return;
+    const c = audio.ctx, t = at ?? c.currentTime + delay;
+    const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = audio.noise;
+    f.type = filter; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(out || audio.sfx);
+    s.start(t, Math.random() * 0.5);
+    s.stop(t + dur + 0.02);
+  }
+
+  function arp(notes, gap, o) { notes.forEach((n, i) => tone({ ...o, freq: NOTE(n), delay: (o.delay || 0) + i * gap })); }
 
   const sfx = {
-    shoot: () => tone({ freq: 320, to: 760, type: 'triangle', dur: 0.12, vol: 0.14 }),
-    bounce: () => tone({ freq: 1100, type: 'sine', dur: 0.04, vol: 0.05 }),
-    stick: () => tone({ freq: 200, to: 120, type: 'sine', dur: 0.09, vol: 0.2 }),
-    pop: i => tone({ freq: 480 + Math.random() * 420, to: 1500, type: 'sine', dur: 0.08, vol: 0.13, delay: i * 0.03 }),
-    drop: i => tone({ freq: 760, to: 190, type: 'triangle', dur: 0.28, vol: 0.07, delay: 0.15 + i * 0.05 }),
-    row: () => tone({ freq: 120, to: 50, type: 'sine', dur: 0.4, vol: 0.32 }),
-    swap: () => tone({ freq: 440, to: 600, type: 'sine', dur: 0.07, vol: 0.1 }),
-    click: () => tone({ freq: 700, type: 'sine', dur: 0.05, vol: 0.08 }),
-    clear: () => [523, 659, 784, 1047].forEach((f, i) => tone({ freq: f, type: 'triangle', dur: 0.3, vol: 0.14, delay: i * 0.1 })),
-    over: () => [392, 330, 262, 196].forEach((f, i) => tone({ freq: f, type: 'triangle', dur: 0.4, vol: 0.14, delay: i * 0.17 })),
+    hover: () => tone({ freq: 1250, dur: 0.03, vol: 0.035 }),
+    click: () => { tone({ freq: 660, to: 990, type: 'triangle', dur: 0.07, vol: 0.12 }); noise({ dur: 0.02, vol: 0.05, freq: 4000 }); },
+    back: () => tone({ freq: 700, to: 420, type: 'triangle', dur: 0.09, vol: 0.12 }),
+    open: () => noise({ dur: 0.2, vol: 0.05, filter: 'bandpass', freq: 1200, q: 0.7 }),
+    toggleOn: () => arp([76, 83], 0.06, { dur: 0.1, vol: 0.13 }),
+    toggleOff: () => arp([83, 76], 0.06, { dur: 0.1, vol: 0.13 }),
+    test: () => arp([72, 76, 79, 84], 0.08, { type: 'triangle', dur: 0.2, vol: 0.14 }),
+    start: () => { arp([60, 64, 67, 72, 76], 0.07, { type: 'triangle', dur: 0.25, vol: 0.12 }); noise({ dur: 0.4, vol: 0.05, filter: 'bandpass', freq: 900 }); },
+    levelStart: () => arp([67, 72, 79], 0.09, { dur: 0.3, vol: 0.13, delay: 0.1 }),
+    pause: () => arp([72, 67], 0.07, { type: 'triangle', dur: 0.12, vol: 0.11 }),
+    resume: () => arp([67, 72], 0.07, { type: 'triangle', dur: 0.12, vol: 0.11 }),
+    shoot: () => { tone({ freq: 300, to: 820, type: 'triangle', dur: 0.12, vol: 0.14 }); noise({ dur: 0.08, vol: 0.05, filter: 'bandpass', freq: 2500 }); },
+    bounce: () => tone({ freq: 1100, to: 900, dur: 0.05, vol: 0.07 }),
+    stick: () => { tone({ freq: 220, to: 110, dur: 0.1, vol: 0.22 }); noise({ dur: 0.04, vol: 0.06, filter: 'lowpass', freq: 900 }); },
+    pop: i => {
+      tone({ freq: 500 + Math.random() * 400 + i * 40, to: 1600 + i * 60, dur: 0.07, vol: 0.13, delay: i * 0.035 });
+      noise({ dur: 0.025, vol: 0.05, freq: 5000, delay: i * 0.035 });
+    },
+    drop: i => tone({ freq: 800, to: 180, type: 'triangle', dur: 0.3, vol: 0.07, delay: 0.15 + i * 0.05 }),
+    combo: n => arp([72, 76, 79, 84, 88].slice(0, Math.min(5, n)), 0.05, { type: 'square', dur: 0.12, vol: 0.05, delay: 0.12 }),
+    row: () => { tone({ freq: 120, to: 45, dur: 0.45, vol: 0.35 }); noise({ dur: 0.3, vol: 0.08, filter: 'lowpass', freq: 400 }); },
+    swap: () => tone({ freq: 440, to: 660, dur: 0.08, vol: 0.11 }),
+    danger: () => [0, 0.22].forEach(d => tone({ freq: 880, to: 660, type: 'square', dur: 0.15, vol: 0.05, delay: d })),
+    record: () => arp([72, 76, 79, 84, 79, 84, 88], 0.08, { type: 'triangle', dur: 0.22, vol: 0.13 }),
+    clear: () => arp([60, 64, 67, 72, 76, 79, 84], 0.08, { type: 'triangle', dur: 0.35, vol: 0.13 }),
+    over: () => arp([67, 64, 60, 55, 48], 0.18, { type: 'triangle', dur: 0.45, vol: 0.13 }),
   };
 
-  function musicNote(f, t, dur, type, vol, attack, wet) {
-    const c = audio.ctx;
-    const o = c.createOscillator(), g = c.createGain();
-    o.type = type; o.frequency.value = f;
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(vol, t + attack);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(audio.musicIn);
-    if (wet) g.connect(audio.echo);
-    o.start(t); o.stop(t + dur + 0.05);
+  function setTrack(name) {
+    if (track === name) return;
+    track = name;
+    mStep = 0;
+    if (audio.ctx) mNext = audio.ctx.currentTime + 0.1;
   }
+  function setDuck(v) { audio.duck = v; applyAudio(); }
 
   function scheduleMusic() {
     const c = audio.ctx;
     if (!c || c.state !== 'running') return;
-    if (!settings.music || settings.volume === 0) { mNext = c.currentTime + 0.1; return; }
+    if (!settings.music || settings.musicVol === 0) { mNext = c.currentTime + 0.1; return; }
     if (mNext < c.currentTime) mNext = c.currentTime + 0.05;
+    const T = TRACKS[track], hot = track === 'game' && danger;
+    const step = 60 / (T.bpm * (hot ? 1.12 : 1)) / 2, out = audio.musicIn;
     while (mNext < c.currentTime + 0.15) {
-      const bar = Math.floor(mStep / 8) % 4, beat = mStep % 8, chord = PROG[bar];
-      if (beat === 0) {
-        chord.forEach(n => musicNote(NOTE(n), mNext, STEP * 8.5, 'sine', 0.04, 0.5, false));
-        musicNote(NOTE(chord[0] - 12), mNext, STEP * 3, 'triangle', 0.11, 0.01, false);
+      const t = mNext, bar = Math.floor(mStep / 8) % 4, beat = mStep % 8, ch = T.prog[bar];
+      if (beat === 0) ch.forEach(n => tone({ freq: NOTE(n), at: t, dur: step * 8.5, vol: 0.035, attack: 0.6, out }));
+      if (beat % 4 === 0 || (hot && beat % 2 === 0)) tone({ freq: NOTE(ch[0] - 12), at: t, dur: step * 3, type: 'triangle', vol: 0.12, attack: 0.01, out });
+      if (Math.random() < (beat % 2 ? T.arp * 0.6 : T.arp)) {
+        tone({ freq: NOTE(pick(ch) + 12 + (Math.random() < 0.2 ? 12 : 0)), at: t, dur: step * 1.8, vol: 0.045, out, wet: true });
       }
-      if (beat === 4) musicNote(NOTE(chord[0] - 12), mNext, STEP * 3, 'triangle', 0.09, 0.01, false);
-      if (Math.random() < (beat % 2 ? 0.45 : 0.8)) {
-        const n = pick([chord[0] + 12, chord[1] + 12, chord[2] + 12, chord[0] + 24]);
-        musicNote(NOTE(n), mNext, STEP * 1.8, 'sine', 0.05, 0.005, true);
+      if (T.drums) {
+        if (beat === 0 || beat === 4) tone({ freq: 140, to: 45, at: t, dur: 0.18, vol: 0.22, out });
+        if (beat === 2 || beat === 6) noise({ at: t, dur: 0.12, vol: 0.05, filter: 'bandpass', freq: 1800, out });
+        if (beat % 2 === 1 || hot) noise({ at: t, dur: 0.03, vol: 0.025, freq: 7000, out });
       }
-      mNext += STEP;
+      mNext += step;
       mStep = (mStep + 1) % 32;
     }
   }
 
-  addEventListener('pointerdown', initAudio, { capture: true });
-  addEventListener('keydown', initAudio, { capture: true });
+  ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(ev =>
+    addEventListener(ev, ensureAudio, { capture: true, passive: true }));
   document.addEventListener('visibilitychange', () => {
     if (!audio.ctx) return;
     if (document.hidden) audio.ctx.suspend(); else audio.ctx.resume();
@@ -558,15 +647,30 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
     misses = 0; shot = null; falling = []; effects = []; popups = []; rowAnim = 0;
     cur = pickColor(); next = pickColor();
     banner = { title: 'Level ' + level, sub: name, t: 0 };
+    danger = false;
     updateHud();
   }
 
+  let prevBest = 0, newRecord = false, toast = null;
   function startGame(key) {
     diffKey = key;
     score = 0; level = 1;
+    prevBest = bests[diffKey];
+    newRecord = false;
     setupLevel();
     state = 'play';
+    setTrack('game');
+    setDuck(1);
+    sfx.start();
     showScreen(null);
+  }
+
+  function checkDanger() {
+    let lowest = -1;
+    for (let r = 0; r < MAX_ROWS; r++) if (grid[r].some(v => v >= 0)) lowest = r;
+    const now = lowest >= DEATH_ROW - 3;
+    if (now && !danger) sfx.danger();
+    danger = now;
   }
 
   // ---------- gameplay ----------
@@ -639,6 +743,7 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
         falling.push({ x: cx(a, b), y: cy(a), vx: (Math.random() - 0.5) * 90, vy: -40 - Math.random() * 90, c: v });
         if (i < 5) sfx.drop(i);
       });
+      if (group.length >= 5 || loose.length) sfx.combo(group.length - 3 + loose.length);
       const gained = Math.round((group.length * 10 + loose.length * 20) * diff().mult);
       addScore(gained);
       popups.push({ x: cx(r, c), y: cy(r), text: '+' + gained, t: 0 });
@@ -652,7 +757,8 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
     if (!present.length) { levelClear(); return; }
     if (!present.includes(cur)) cur = pickColor();
     if (!present.includes(next)) next = pickColor();
-    if (overLine()) endGame();
+    if (overLine()) { endGame(); return; }
+    checkDanger();
   }
 
   function addRow() {
@@ -672,35 +778,64 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
 
   function addScore(n) {
     score += n;
-    if (score > bests[diffKey]) { bests[diffKey] = score; saveBests(); }
+    if (score > bests[diffKey]) {
+      bests[diffKey] = score;
+      saveBests();
+      if (!newRecord && prevBest > 0) {
+        newRecord = true;
+        toast = { text: 'New high score!', t: 0 };
+        sfx.record();
+        const b = $('best');
+        b.classList.remove('flash');
+        void b.offsetWidth;
+        b.classList.add('flash');
+      }
+    }
     updateHud();
+  }
+
+  function recordLine() {
+    const el = $('resRecord');
+    el.hidden = !(score > 0 && score >= bests[diffKey] && score > prevBest);
+    el.textContent = prevBest > 0
+      ? `New ${diff().label} high score! Previous best: ${prevBest}`
+      : `First ${diff().label} high score set: ${score}`;
   }
 
   function levelClear() {
     const bonus = Math.round(250 * level * diff().mult);
     addScore(bonus);
     state = 'clear';
+    danger = false;
     sfx.clear();
-    showResult('Reef cleared', `Level ${level} done on ${diff().label}. Clearing bonus +${bonus}.`, 'Next level');
+    setDuck(0.45);
+    recordLine();
+    showResult('Reef cleared', `Level ${level} done on ${diff().label}. Clearing bonus +${bonus}. Score ${score}.`, 'Next level');
   }
 
   function endGame() {
     state = 'over';
+    danger = false;
     sfx.over();
-    const isBest = score > 0 && score >= bests[diffKey];
-    showResult('The reef flooded', `Bubbles crossed the red line. You scored ${score}${isBest ? ', a new best on ' + diff().label : ''}.`, 'Play again');
+    setTrack('menu');
+    recordLine();
+    showResult('The reef flooded', `Bubbles crossed the red line. You scored ${score} on ${diff().label}. High score: ${bests[diffKey]}.`, 'Play again');
   }
 
   function updateHud() {
     $('score').textContent = score;
     $('level').textContent = level;
     $('best').textContent = bests[diffKey];
-    $('bestLine').textContent = `Best · Easy ${bests.easy} · Normal ${bests.normal} · Hard ${bests.hard}`;
+    $('bestLine').textContent = `High scores · Easy ${bests.easy} · Normal ${bests.normal} · Hard ${bests.hard}`;
+    for (const k of Object.keys(DIFFS)) $('rec-' + k).textContent = `High score ${bests[k]}`;
   }
 
   // ---------- menus ----------
-  const SCREENS = ['main', 'diff', 'settings', 'pause', 'result'];
+  const SCREENS = ['start', 'main', 'diff', 'settings', 'pause', 'result'];
+  let currentScreen = null;
   function showScreen(name) {
+    if (name && name !== currentScreen && currentScreen) sfx.open();
+    currentScreen = name;
     overlay.hidden = !name;
     SCREENS.forEach(s => { $('scr-' + s).hidden = s !== name; });
     $('pauseBtn').hidden = state !== 'play' && state !== 'paused';
@@ -720,6 +855,9 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
   function goMenu() {
     state = 'menu';
     shot = null;
+    danger = false;
+    setTrack('menu');
+    setDuck(1);
     updateHud();
     showScreen('main');
   }
@@ -729,11 +867,15 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
     state = 'paused';
     pointerDown = false;
     keys.ArrowLeft = keys.ArrowRight = false;
+    sfx.pause();
+    setDuck(0.4);
     showScreen('pause');
   }
   function resume() {
     if (state !== 'paused') return;
     state = 'play';
+    sfx.resume();
+    setDuck(1);
     showScreen(null);
   }
 
@@ -742,26 +884,48 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
   function syncSettingsUI() {
     $('tSound').setAttribute('aria-checked', String(settings.sound));
     $('tMusic').setAttribute('aria-checked', String(settings.music));
-    $('vol').value = settings.volume;
+    $('sfxVol').value = settings.sfxVol;
+    $('musicVol').value = settings.musicVol;
   }
 
-  overlay.addEventListener('click', e => { if (e.target.closest('button')) sfx.click(); });
+  overlay.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const kind = b.dataset.sfx || 'click';
+    if (kind !== 'none') sfx[kind]();
+  });
+  let hoverBtn = null;
+  overlay.addEventListener('pointerover', e => {
+    const b = e.target.closest('button');
+    if (b !== hoverBtn) { hoverBtn = b; if (b && e.pointerType === 'mouse') sfx.hover(); }
+  });
+  $('btnStart').addEventListener('click', () => { sfx.start(); setTrack('menu'); showScreen('main'); });
   $('btnPlay').addEventListener('click', () => showScreen('diff'));
   $('btnSettings').addEventListener('click', () => openSettings('main'));
   $('diffBack').addEventListener('click', () => showScreen('main'));
   document.querySelectorAll('.diff').forEach(b => b.addEventListener('click', () => startGame(b.dataset.diff)));
   $('settingsBack').addEventListener('click', () => showScreen(settingsReturn));
-  $('tSound').addEventListener('click', () => { settings.sound = !settings.sound; syncSettingsUI(); applyAudio(); saveSettings(); });
-  $('tMusic').addEventListener('click', () => { settings.music = !settings.music; syncSettingsUI(); applyAudio(); saveSettings(); });
-  $('vol').addEventListener('input', e => { settings.volume = +e.target.value; applyAudio(); saveSettings(); });
+  $('tSound').addEventListener('click', () => {
+    settings.sound = !settings.sound; syncSettingsUI(); applyAudio(); saveSettings();
+    if (settings.sound) sfx.toggleOn();
+  });
+  $('tMusic').addEventListener('click', () => {
+    settings.music = !settings.music; syncSettingsUI(); applyAudio(); saveSettings();
+    if (settings.music) sfx.toggleOn(); else sfx.toggleOff();
+  });
+  $('sfxVol').addEventListener('input', e => { settings.sfxVol = +e.target.value; applyAudio(); saveSettings(); });
+  $('sfxVol').addEventListener('change', () => sfx.test());
+  $('musicVol').addEventListener('input', e => { settings.musicVol = +e.target.value; applyAudio(); saveSettings(); });
+  $('btnTest').addEventListener('click', () => sfx.test());
   $('btnResume').addEventListener('click', resume);
   $('btnPauseSettings').addEventListener('click', () => openSettings('pause'));
   $('btnQuit').addEventListener('click', goMenu);
-  $('pauseBtn').addEventListener('click', () => (state === 'play' ? pause() : resume()));
+  $('pauseBtn').addEventListener('click', () => { ensureAudio(); state === 'play' ? pause() : resume(); });
   $('resMenu').addEventListener('click', goMenu);
   $('resBtn').addEventListener('click', () => {
-    if (state === 'clear') { level++; setupLevel(); state = 'play'; showScreen(null); }
-    else startGame(diffKey);
+    if (state === 'clear') {
+      level++; setupLevel(); state = 'play'; setDuck(1); sfx.levelStart(); showScreen(null);
+    } else startGame(diffKey);
   });
 
   // ---------- effects ----------
@@ -871,8 +1035,9 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
 
     const dy = cy(DEATH_ROW) - R * 0.6;
     ctx.setLineDash([6, 6]);
-    ctx.strokeStyle = 'rgba(255,107,107,0.5)';
-    ctx.lineWidth = 1.5;
+    const pulse = danger && state === 'play' ? 0.5 + 0.5 * Math.sin(time * 8) : 0;
+    ctx.strokeStyle = `rgba(255,107,107,${0.5 + pulse * 0.5})`;
+    ctx.lineWidth = 1.5 + pulse * 1.5;
     ctx.beginPath(); ctx.moveTo(0, dy); ctx.lineTo(W, dy); ctx.stroke();
     ctx.setLineDash([]);
 
@@ -939,6 +1104,22 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
     }
     ctx.globalAlpha = 1;
 
+    if (toast && state === 'play') {
+      ctx.globalAlpha = toast.t < 0.2 ? toast.t / 0.2 : Math.max(0, 1 - (toast.t - 1.6) / 0.4);
+      const s = 1 + 0.08 * Math.sin(toast.t * 10);
+      ctx.save();
+      ctx.translate(W / 2, H * 0.4);
+      ctx.scale(s, s);
+      ctx.font = '22px Bungee, "Arial Black", sans-serif';
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#06202b';
+      ctx.strokeText(toast.text.toUpperCase(), 0, 0);
+      ctx.fillStyle = '#ffc145';
+      ctx.fillText(toast.text.toUpperCase(), 0, 0);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
     if (banner && state === 'play') {
       const a = banner.t < 0.25 ? banner.t / 0.25 : Math.max(0, 1 - (banner.t - 1.4) / 0.4);
       ctx.globalAlpha = a;
@@ -961,6 +1142,7 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
       if (keys.ArrowRight) angle = Math.max(MIN_A, angle - 1.8 * dt);
       if (shot) stepShot(dt);
       if (banner) { banner.t += dt; if (banner.t > 1.8) banner = null; }
+      if (toast) { toast.t += dt; if (toast.t > 2) toast = null; }
     }
     if (state === 'paused') return;
     rowAnim = Math.max(0, rowAnim - ROW_H * dt * 6);
@@ -1042,14 +1224,17 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
     if (data && Array.isArray(data.grid) && (data.state === 'play' || data.state === 'paused') && DIFFS[data.diffKey]) {
       ({ grid, parity, score, level, misses, cur, next, diffKey, levelColors } = data);
       state = 'paused';
+      prevBest = bests[diffKey];
+      track = 'game';
+      audio.duck = 0.4;
       updateHud();
       showScreen('pause');
     } else {
-      generateLevel(); // a random reef behind the main menu
+      generateLevel(); // a random reef behind the menus
       cur = pickColor(); next = pickColor();
       state = 'menu';
       updateHud();
-      showScreen('main');
+      showScreen('start');
     }
     resize();
     requestAnimationFrame(frame);
