@@ -55,7 +55,7 @@ when you switch apps or lock the phone.
 The game is wrapped with [Capacitor](https://capacitorjs.com). You need a Mac with Xcode and an
 Apple Developer account to put it on the App Store.
 
-1. Change `appId` in `capacitor.config.json` to your own reverse domain, e.g. `com.yourname.bubblebash`.
+1. The app ID is `com.einars.bubblebash` (set in `capacitor.config.json`). Register the same Bundle ID in your Apple Developer account.
 2. `npm install`
 3. `npx cap add ios` (first time only)
 4. `npm run ios` copies the game into `www/`, syncs it and opens Xcode.
