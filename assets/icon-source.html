@@ -1,0 +1,97 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&display=swap">
+</head><body style="margin:0;background:#222">
+<script>
+const COL = {
+  cyan: ['#3cc8e8', '#156f8d', 'diamond'],
+  pink: ['#ff85cf', '#a8337c', 'ring'],
+  gold: ['#ffc145', '#b07614', 'tri'],
+};
+function bg(ctx, w, h) {
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, '#1a6f86'); g.addColorStop(0.55, '#0b3a4a'); g.addColorStop(1, '#051a23');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  const s = Math.min(w, h);
+  // light shafts
+  ctx.fillStyle = 'rgba(170,240,255,0.07)';
+  [[0.12, 0.16], [0.46, 0.12], [0.78, 0.1]].forEach(([x, bw]) => {
+    ctx.beginPath(); ctx.moveTo(w * x, 0); ctx.lineTo(w * (x + bw), 0);
+    ctx.lineTo(w * (x + bw) + h * 0.35, h); ctx.lineTo(w * x + h * 0.25, h); ctx.closePath(); ctx.fill();
+  });
+  // glow behind the bubbles
+  const gl = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, s * 0.55);
+  gl.addColorStop(0, 'rgba(60,200,232,0.28)'); gl.addColorStop(1, 'rgba(60,200,232,0)');
+  ctx.fillStyle = gl; ctx.fillRect(0, 0, w, h);
+}
+function bubble(ctx, x, y, r, [base, dark, glyph]) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = r * 0.25; ctx.shadowOffsetY = r * 0.08;
+  const g = ctx.createRadialGradient(x - r * 0.32, y - r * 0.38, r * 0.05, x, y, r);
+  g.addColorStop(0, 'rgba(255,255,255,0.97)'); g.addColorStop(0.22, base); g.addColorStop(1, dark);
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+  ctx.restore();
+  ctx.lineWidth = r * 0.06; ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.beginPath(); ctx.arc(x, y, r * 0.97, 0, Math.PI * 2); ctx.stroke();
+  // glyph, same shapes as in the game
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+  const k = r * 0.28; ctx.beginPath();
+  if (glyph === 'diamond') { ctx.moveTo(x, y - k); ctx.lineTo(x + k, y + k * 0.1); ctx.lineTo(x, y + k * 1.2); ctx.lineTo(x - k, y + k * 0.1); ctx.closePath(); ctx.fill(); }
+  if (glyph === 'tri') { ctx.moveTo(x, y - k * 0.9); ctx.lineTo(x + k, y + k * 0.8); ctx.lineTo(x - k, y + k * 0.8); ctx.closePath(); ctx.fill(); }
+  if (glyph === 'ring') { ctx.lineWidth = r * 0.12; ctx.arc(x, y + k * 0.15, k * 0.85, 0, Math.PI * 2); ctx.stroke(); }
+  // shine
+  ctx.beginPath(); ctx.ellipse(x - r * 0.36, y - r * 0.44, r * 0.3, r * 0.17, -0.6, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fill();
+}
+// the bubble cluster, laid out in a unit box centered on (cx, cy) with size s
+function art(ctx, cx, cy, s) {
+  const P = (u, v) => [cx + u * s, cy + v * s];
+  // rising rings
+  ctx.strokeStyle = 'rgba(220,250,255,0.55)'; ctx.lineWidth = s * 0.012;
+  [[-0.36, -0.34, 0.035], [-0.28, -0.42, 0.022], [0.38, 0.02, 0.028], [-0.4, 0.2, 0.02]].forEach(([u, v, r]) => {
+    const [x, y] = P(u, v); ctx.beginPath(); ctx.arc(x, y, r * s, 0, Math.PI * 2); ctx.stroke();
+  });
+  // pop burst around the pink bubble
+  const [px, py] = P(0.2, -0.22);
+  ctx.fillStyle = '#ffd166';
+  for (let i = 0; i < 7; i++) {
+    const a = -2.6 + i * 0.42, d = s * 0.25;
+    ctx.beginPath(); ctx.arc(px + Math.cos(a) * d, py + Math.sin(a) * d, s * (0.012 + (i % 2) * 0.008), 0, Math.PI * 2); ctx.fill();
+  }
+  bubble(ctx, ...P(0.2, -0.22), s * 0.17, COL.pink);
+  bubble(ctx, ...P(0.24, 0.24), s * 0.15, COL.gold);
+  bubble(ctx, ...P(-0.1, 0.06), s * 0.27, COL.cyan);
+}
+function make(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'); draw(ctx, w, h); return c.toDataURL('image/png');
+}
+window.render = () => ({
+  // iOS + general icon: full bleed, no transparency (the OS rounds the corners)
+  'icon-only.png': make(1024, 1024, (ctx, w, h) => { bg(ctx, w, h); art(ctx, w / 2, h / 2, w * 0.98); }),
+  // Android adaptive icon: art inside the central safe zone on a transparent layer
+  'icon-foreground.png': make(1024, 1024, (ctx, w, h) => { art(ctx, w / 2, h / 2, w * 0.6); }),
+  'icon-background.png': make(1024, 1024, (ctx, w, h) => bg(ctx, w, h)),
+  'splash.png': make(2732, 2732, (ctx, w, h) => splash(ctx, w, h)),
+  'splash-dark.png': make(2732, 2732, (ctx, w, h) => splash(ctx, w, h)),
+  'play-store-icon-512.png': make(512, 512, (ctx, w, h) => { bg(ctx, w, h); art(ctx, w / 2, h / 2, w * 0.98); }),
+  'play-feature-graphic.png': make(1024, 500, (ctx, w, h) => {
+    bg(ctx, w, h); art(ctx, w * 0.24, h * 0.52, h * 0.95);
+    title(ctx, w * 0.64, h * 0.5, h * 0.2, 'Pop the reef before it floods');
+  }),
+});
+function title(ctx, x, y, size, sub) {
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `${size}px Bungee`;
+  ctx.fillStyle = '#0e4558';
+  ctx.fillText('BUBBLE', x, y - size * 0.55 + size * 0.08); ctx.fillText('BASH', x, y + size * 0.5 + size * 0.08);
+  ctx.fillStyle = '#e8fbff';
+  ctx.fillText('BUBBLE', x, y - size * 0.55); ctx.fillText('BASH', x, y + size * 0.5);
+  if (sub) { ctx.font = `800 ${size * 0.24}px sans-serif`; ctx.fillStyle = '#ffc145'; ctx.fillText(sub, x, y + size * 1.35); }
+}
+// splash: content stays in the middle third so it survives cropping on any screen shape
+function splash(ctx, w, h) {
+  bg(ctx, w, h);
+  art(ctx, w / 2, h * 0.44, w * 0.32);
+  title(ctx, w / 2, h * 0.62, w * 0.055);
+}
+</script></body></html>

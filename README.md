@@ -51,6 +51,15 @@ The board fills the screen, touch targets are at least 44px, and the page doesn'
 select text while you play. Drag to aim and lift to shoot; tap the launcher to swap. The game pauses
 when you switch apps or lock the phone.
 
+## App icon and splash screen
+- `assets/` holds the source images: `icon-only.png` (1024, iPhone and general), `icon-foreground.png` +
+  `icon-background.png` (Android adaptive icon), `splash.png` / `splash-dark.png` (2732).
+  `assets/icon-source.html` is the drawing they were made from.
+- `store/` holds Google Play listing art: `play-store-icon-512.png` and `play-feature-graphic.png` (1024×500).
+- `icons/` holds the browser tab and home-screen icons used by `index.html`.
+- After `npx cap add ios` / `npx cap add android`, run `npm run icons` to generate every icon and
+  splash size into the native projects.
+
 ## Building the iPhone app (App Store)
 The game is wrapped with [Capacitor](https://capacitorjs.com). You need a Mac with Xcode and an
 Apple Developer account to put it on the App Store.
@@ -58,7 +67,8 @@ Apple Developer account to put it on the App Store.
 1. The app ID is `com.einars.bubblebash` (set in `capacitor.config.json`). Register the same Bundle ID in your Apple Developer account.
 2. `npm install`
 3. `npx cap add ios` (first time only)
-4. `npm run ios` copies the game into `www/`, syncs it and opens Xcode.
-5. In Xcode pick your team under Signing, run it on your iPhone, then Product → Archive to upload.
+4. `npm run icons` puts the app icon and splash screen in place.
+5. `npm run ios` copies the game into `www/`, syncs it and opens Xcode.
+6. In Xcode pick your team under Signing, run it on your iPhone, then Product → Archive to upload.
 
-Android works the same way with `npx cap add android` and `npm run android` (needs Android Studio).
+Android works the same way: `npx cap add android`, `npm run icons`, then `npm run android` (needs Android Studio).
