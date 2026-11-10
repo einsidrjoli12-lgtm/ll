@@ -1,0 +1,659 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bubble Reef</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@400;700;800&display=swap">
+<style>
+/* Layout: one-screen arcade tank. HUD strip on top, tall portrait water tank, one hint line below. */
+:root {
+  --abyss: #06202b;
+  --panel: #0b2f3c;
+  --foam: #e8fbff;
+  --muted: #86b7c4;
+  --glow: #ffc145;
+  --scrim: rgba(3, 16, 22, 0.78);
+  --font-display: "Bungee", "Arial Black", system-ui, sans-serif;
+  --font-body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  background: var(--abyss);
+  color: var(--foam);
+  font-family: var(--font-body);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+}
+.cabinet {
+  width: min(100%, max(240px, calc((100vh - 140px) * 0.6286)));
+  width: min(100%, max(240px, calc((100dvh - 140px) * 0.6286)));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.hud { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.1rem, 4.6vw, 1.5rem);
+  line-height: 1;
+  margin: 0;
+  color: var(--foam);
+  text-shadow: 0 2px 0 #0e4558;
+  text-wrap: balance;
+}
+.stats { display: flex; gap: 14px; }
+.stat { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.stat span {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stat b {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--glow);
+}
+.tank {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 352 / 560;
+  max-width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px #134d60, 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: var(--scrim);
+}
+.overlay h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.6rem;
+  margin: 0;
+  color: var(--glow);
+  text-wrap: balance;
+}
+.overlay p { margin: 0; max-width: 24ch; color: var(--foam); line-height: 1.45; }
+.overlay button {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 26px;
+  background: var(--glow);
+  color: var(--abyss);
+  cursor: pointer;
+  box-shadow: 0 4px 0 #b9801a;
+}
+.overlay button:active { transform: translateY(2px); box-shadow: 0 2px 0 #b9801a; }
+.overlay button:focus-visible { outline: 3px solid var(--foam); outline-offset: 3px; }
+.hint { margin: 0; font-size: 0.78rem; line-height: 1.4; color: var(--muted); text-align: center; }
+.hint kbd {
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.7rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--foam);
+}
+</style>
+
+<div class="cabinet">
+  <header class="hud">
+    <h1>Bubble Reef</h1>
+    <div class="stats">
+      <div class="stat"><span>Level</span><b id="level">1</b></div>
+      <div class="stat"><span>Score</span><b id="score">0</b></div>
+      <div class="stat"><span>Best</span><b id="best">0</b></div>
+    </div>
+  </header>
+  <div class="tank">
+    <canvas id="game" aria-label="Bubble shooter board"></canvas>
+    <div class="overlay" id="overlay" hidden>
+      <h2 id="ovTitle">Reef cleared</h2>
+      <p id="ovText"></p>
+      <button id="ovBtn" type="button">Next level</button>
+    </div>
+  </div>
+  <p class="hint">Aim and release to shoot. Match 3 to pop. Tap the small bubble to swap.
+    <br><kbd>←</kbd> <kbd>→</kbd> aim · <kbd>Space</kbd> shoot · <kbd>X</kbd> swap</p>
+</div>
+
+<script>
+(() => {
+  const W = 352, H = 560, R = 16, D = 32, COLS = 11;
+  const ROW_H = R * Math.sqrt(3);
+  const MAX_ROWS = 17, DEATH_ROW = 16;
+  const SHOOT_X = W / 2, SHOOT_Y = 506, SPEED = 1100;
+  const NEXT_X = SHOOT_X - 76, NEXT_Y = SHOOT_Y + 22;
+  const MIN_A = 0.13, MAX_A = Math.PI - 0.13;
+  const COLORS = [
+    { base: '#ff6b6b', dark: '#a82a35', glyph: 'dot' },
+    { base: '#ffc145', dark: '#b07614', glyph: 'tri' },
+    { base: '#4fd18b', dark: '#1b7c4b', glyph: 'square' },
+    { base: '#3cc8e8', dark: '#156f8d', glyph: 'diamond' },
+    { base: '#a283ff', dark: '#5534b8', glyph: 'plus' },
+    { base: '#ff85cf', dark: '#a8337c', glyph: 'ring' },
+  ];
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const cv = document.getElementById('game');
+  const ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const overlay = $('overlay');
+
+  let grid = [], parity = 0, score = 0, level = 1, misses = 0, cur = 0, next = 1;
+  let angle = Math.PI / 2, shot = null, falling = [], effects = [], popups = [];
+  let state = 'play', rowAnim = 0, bestScore = 0, scale = 1, sprites = [];
+  let pointerDown = false;
+  const keys = {};
+
+  try { bestScore = +localStorage.getItem('bubble-reef-best') || 0; } catch (e) {}
+
+  // ---------- grid helpers ----------
+  const isOff = r => ((r + parity) & 1) === 1;
+  const rowLen = r => (isOff(r) ? COLS - 1 : COLS);
+  const cx = (r, c) => R + c * D + (isOff(r) ? R : 0);
+  const cy = r => R + r * ROW_H;
+  const shotsPerRow = () => Math.max(3, 7 - level);
+  const numColors = () => Math.min(3 + level, COLORS.length);
+
+  function neighbors(r, c) {
+    const cols = isOff(r) ? [c, c + 1] : [c - 1, c];
+    const list = [[r, c - 1], [r, c + 1]];
+    for (const rr of [r - 1, r + 1]) for (const cc of cols) list.push([rr, cc]);
+    return list.filter(([rr, cc]) => rr >= 0 && rr < MAX_ROWS && cc >= 0 && cc < grid[rr].length);
+  }
+
+  function flood(r, c, pred, seen = new Set()) {
+    const out = [];
+    const k0 = r * 100 + c;
+    if (seen.has(k0) || !pred(r, c)) return out;
+    seen.add(k0);
+    const stack = [[r, c]];
+    while (stack.length) {
+      const [a, b] = stack.pop();
+      out.push([a, b]);
+      for (const [na, nb] of neighbors(a, b)) {
+        const k = na * 100 + nb;
+        if (!seen.has(k) && pred(na, nb)) { seen.add(k); stack.push([na, nb]); }
+      }
+    }
+    return out;
+  }
+
+  function boardColors() {
+    const s = new Set();
+    for (const row of grid) for (const v of row) if (v >= 0) s.add(v);
+    return [...s];
+  }
+  function pickColor() {
+    const cs = boardColors();
+    return cs.length ? cs[(Math.random() * cs.length) | 0] : (Math.random() * numColors()) | 0;
+  }
+
+  function setupLevel() {
+    parity = 0;
+    grid = [];
+    for (let r = 0; r < MAX_ROWS; r++) grid.push(new Array(rowLen(r)).fill(-1));
+    const rows = Math.min(4 + level, 9), n = numColors();
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < grid[r].length; c++) {
+        let col = -1;
+        if (Math.random() < 0.45) {
+          const ns = neighbors(r, c).filter(([a, b]) => grid[a][b] >= 0);
+          if (ns.length) { const [a, b] = ns[(Math.random() * ns.length) | 0]; col = grid[a][b]; }
+        }
+        grid[r][c] = col >= 0 ? col : (Math.random() * n) | 0;
+      }
+    }
+    misses = 0; shot = null; falling = []; effects = []; popups = []; rowAnim = 0;
+    cur = pickColor(); next = pickColor();
+    state = 'play';
+    overlay.hidden = true;
+    updateHud();
+  }
+
+  function newGame() { score = 0; level = 1; setupLevel(); }
+
+  // ---------- gameplay ----------
+  function collides(x, y) {
+    if (y <= R) return true;
+    const r0 = Math.max(0, Math.floor((y - R) / ROW_H) - 1);
+    const lim = (D * 0.82) ** 2;
+    for (let r = r0; r <= Math.min(MAX_ROWS - 1, r0 + 3); r++) {
+      const row = grid[r], yy = cy(r);
+      for (let c = 0; c < row.length; c++) {
+        if (row[c] >= 0 && (cx(r, c) - x) ** 2 + (yy - y) ** 2 < lim) return true;
+      }
+    }
+    return false;
+  }
+
+  function fire() {
+    if (state !== 'play' || shot) return;
+    shot = { x: SHOOT_X, y: SHOOT_Y, vx: Math.cos(angle) * SPEED, vy: -Math.sin(angle) * SPEED, c: cur };
+    cur = next;
+    next = pickColor();
+  }
+
+  function swap() {
+    if (state !== 'play') return;
+    [cur, next] = [next, cur];
+  }
+
+  function stepShot(dt) {
+    const steps = Math.ceil((SPEED * dt) / 4);
+    for (let i = 0; i < steps; i++) {
+      shot.x += (shot.vx * dt) / steps;
+      shot.y += (shot.vy * dt) / steps;
+      if (shot.x < R) { shot.x = 2 * R - shot.x; shot.vx = -shot.vx; }
+      if (shot.x > W - R) { shot.x = 2 * (W - R) - shot.x; shot.vx = -shot.vx; }
+      if (collides(shot.x, shot.y)) { land(); return; }
+    }
+  }
+
+  function land() {
+    const { x, y, c } = shot;
+    shot = null;
+    let pick = null, bd = Infinity;
+    const rc = Math.round((y - R) / ROW_H);
+    for (let r = Math.max(0, rc - 1); r <= Math.min(MAX_ROWS - 1, rc + 1); r++) {
+      for (let cc = 0; cc < grid[r].length; cc++) {
+        if (grid[r][cc] >= 0) continue;
+        const d = (cx(r, cc) - x) ** 2 + (cy(r) - y) ** 2;
+        if (d < bd) { bd = d; pick = [r, cc]; }
+      }
+    }
+    if (!pick) { endGame(); return; }
+    const [r, cc] = pick;
+    grid[r][cc] = c;
+    resolve(r, cc, c);
+  }
+
+  function resolve(r, c, col) {
+    const group = flood(r, c, (a, b) => grid[a][b] === col);
+    if (group.length >= 3) {
+      group.forEach(([a, b], i) => { spawnPop(cx(a, b), cy(a), grid[a][b], i * 0.03); grid[a][b] = -1; });
+      const connected = new Set();
+      for (let cc = 0; cc < grid[0].length; cc++) flood(0, cc, (a, b) => grid[a][b] >= 0, connected);
+      let dropped = 0;
+      for (let a = 0; a < MAX_ROWS; a++) {
+        for (let b = 0; b < grid[a].length; b++) {
+          if (grid[a][b] >= 0 && !connected.has(a * 100 + b)) {
+            falling.push({ x: cx(a, b), y: cy(a), vx: (Math.random() - 0.5) * 90, vy: -40 - Math.random() * 90, c: grid[a][b] });
+            grid[a][b] = -1;
+            dropped++;
+          }
+        }
+      }
+      const gained = group.length * 10 + dropped * 20;
+      addScore(gained);
+      popups.push({ x: cx(r, c), y: cy(r), text: '+' + gained, t: 0 });
+    } else {
+      misses++;
+      if (misses >= shotsPerRow()) { misses = 0; addRow(); }
+    }
+
+    const present = boardColors();
+    if (!present.length) { levelClear(); return; }
+    if (!present.includes(cur)) cur = pickColor();
+    if (!present.includes(next)) next = pickColor();
+    if (overLine()) endGame();
+  }
+
+  function addRow() {
+    const present = boardColors();
+    parity ^= 1;
+    const row = Array.from({ length: rowLen(0) }, () =>
+      present.length ? present[(Math.random() * present.length) | 0] : (Math.random() * numColors()) | 0);
+    grid.unshift(row);
+    grid.pop();
+    rowAnim = ROW_H;
+  }
+
+  function overLine() {
+    for (let r = DEATH_ROW; r < MAX_ROWS; r++) if (grid[r].some(v => v >= 0)) return true;
+    return false;
+  }
+
+  function addScore(n) {
+    score += n;
+    if (score > bestScore) {
+      bestScore = score;
+      try { localStorage.setItem('bubble-reef-best', String(bestScore)); } catch (e) {}
+    }
+    updateHud();
+  }
+
+  function levelClear() {
+    const bonus = 250 * level;
+    addScore(bonus);
+    state = 'clear';
+    showOverlay('Reef cleared', `Level ${level} done. Clearing bonus +${bonus}.`, 'Next level');
+  }
+
+  function endGame() {
+    state = 'over';
+    showOverlay('The reef flooded', `Bubbles crossed the red line. You scored ${score}.`, 'Play again');
+  }
+
+  function showOverlay(title, text, btn) {
+    $('ovTitle').textContent = title;
+    $('ovText').textContent = text;
+    $('ovBtn').textContent = btn;
+    overlay.hidden = false;
+    $('ovBtn').focus({ preventScroll: true });
+  }
+
+  $('ovBtn').addEventListener('click', () => {
+    if (state === 'clear') { level++; setupLevel(); }
+    else newGame();
+  });
+
+  function updateHud() {
+    $('score').textContent = score;
+    $('level').textContent = level;
+    $('best').textContent = bestScore;
+  }
+
+  // ---------- effects ----------
+  function spawnPop(x, y, c, delay) {
+    effects.push({ kind: 'ring', x, y, c, t: -delay });
+    for (let i = 0; i < 6; i++) {
+      const a = Math.random() * Math.PI * 2, s = 60 + Math.random() * 110;
+      effects.push({ kind: 'drop', x, y, c, t: -delay, vx: Math.cos(a) * s, vy: Math.sin(a) * s, r: 1.5 + Math.random() * 2 });
+    }
+  }
+
+  const ambient = Array.from({ length: 16 }, () => ({
+    x: Math.random() * W, y: Math.random() * H, r: 1 + Math.random() * 2.5, s: 8 + Math.random() * 18,
+  }));
+
+  // ---------- rendering ----------
+  function makeSprite(ci) {
+    const size = D + 4, k = size / 2, col = COLORS[ci];
+    const s = document.createElement('canvas');
+    s.width = s.height = Math.ceil(size * scale);
+    const c = s.getContext('2d');
+    c.setTransform(scale, 0, 0, scale, 0, 0);
+    const rr = R - 0.6;
+    const g = c.createRadialGradient(k - 5, k - 6, 1, k, k, rr);
+    g.addColorStop(0, 'rgba(255,255,255,0.95)');
+    g.addColorStop(0.22, col.base);
+    g.addColorStop(1, col.dark);
+    c.beginPath(); c.arc(k, k, rr, 0, Math.PI * 2); c.fillStyle = g; c.fill();
+    c.lineWidth = 1.2; c.strokeStyle = 'rgba(255,255,255,0.35)'; c.stroke();
+
+    c.fillStyle = 'rgba(0,0,0,0.26)';
+    c.strokeStyle = 'rgba(0,0,0,0.26)';
+    c.beginPath();
+    switch (col.glyph) {
+      case 'dot': c.arc(k, k + 1, 3.6, 0, Math.PI * 2); c.fill(); break;
+      case 'tri': c.moveTo(k, k - 4); c.lineTo(k + 4.8, k + 4); c.lineTo(k - 4.8, k + 4); c.closePath(); c.fill(); break;
+      case 'square': c.rect(k - 3.6, k - 2.6, 7.2, 7.2); c.fill(); break;
+      case 'diamond': c.moveTo(k, k - 4.6); c.lineTo(k + 4.6, k + 0.6); c.lineTo(k, k + 5.4); c.lineTo(k - 4.6, k + 0.6); c.closePath(); c.fill(); break;
+      case 'plus': c.rect(k - 1.6, k - 3.8, 3.2, 9.6); c.rect(k - 4.8, k - 0.6, 9.6, 3.2); c.fill(); break;
+      case 'ring': c.lineWidth = 2.2; c.arc(k, k + 1, 3.8, 0, Math.PI * 2); c.stroke(); break;
+    }
+
+    c.beginPath(); c.ellipse(k - 5.5, k - 7, 4.5, 2.6, -0.6, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(255,255,255,0.75)'; c.fill();
+    return s;
+  }
+
+  function drawBubble(x, y, c, size = 1, alpha = 1) {
+    const s = (D + 4) * size;
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sprites[c], x - s / 2, y - s / 2, s, s);
+    ctx.globalAlpha = 1;
+  }
+
+  function resize() {
+    const rect = cv.getBoundingClientRect();
+    if (!rect.width) return;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(rect.width * dpr);
+    cv.height = Math.round(rect.height * dpr);
+    scale = cv.width / W;
+    sprites = COLORS.map((_, i) => makeSprite(i));
+  }
+
+  function drawGuide() {
+    let x = SHOOT_X, y = SHOOT_Y, vx = Math.cos(angle), vy = -Math.sin(angle);
+    ctx.fillStyle = '#e8fbff';
+    for (let i = 1; i < 200; i++) {
+      x += vx * 4; y += vy * 4;
+      if (x < R) { x = 2 * R - x; vx = -vx; }
+      if (x > W - R) { x = 2 * (W - R) - x; vx = -vx; }
+      if (collides(x, y)) break;
+      if (i % 4 === 0 && i > 8) {
+        ctx.globalAlpha = 0.6 * (1 - i / 200);
+        ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function draw(time) {
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#0f4a5e');
+    bg.addColorStop(0.7, '#082a37');
+    bg.addColorStop(1, '#04141b');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // light shafts from the surface
+    ctx.fillStyle = 'rgba(160,235,255,0.045)';
+    for (let i = 0; i < 3; i++) {
+      const sx = 40 + i * 120 + Math.sin(time * 0.3 + i) * 12;
+      ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx + 50, 0); ctx.lineTo(sx + 130, H); ctx.lineTo(sx + 60, H); ctx.closePath(); ctx.fill();
+    }
+
+    // ambient rising bubbles
+    ctx.strokeStyle = 'rgba(200,245,255,0.18)';
+    ctx.lineWidth = 1;
+    for (const a of ambient) { ctx.beginPath(); ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2); ctx.stroke(); }
+
+    // sea floor
+    ctx.fillStyle = '#0a2630';
+    ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, H - 34);
+    ctx.quadraticCurveTo(W * 0.25, H - 58, W * 0.5, H - 46);
+    ctx.quadraticCurveTo(W * 0.78, H - 34, W, H - 52);
+    ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+
+    // danger line
+    const dy = cy(DEATH_ROW) - R * 0.6;
+    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = 'rgba(255,107,107,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, dy); ctx.lineTo(W, dy); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // grid
+    for (let r = 0; r < MAX_ROWS; r++) {
+      const row = grid[r], yy = cy(r) - rowAnim;
+      for (let c = 0; c < row.length; c++) if (row[c] >= 0) drawBubble(cx(r, c), yy, row[c]);
+    }
+
+    if (state === 'play' && !shot) drawGuide();
+
+    // pop effects
+    for (const e of effects) {
+      if (e.t < 0) continue;
+      const col = COLORS[e.c].base;
+      if (e.kind === 'ring') {
+        const k = e.t / 0.3;
+        ctx.globalAlpha = Math.max(0, 1 - k);
+        ctx.strokeStyle = col; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(e.x, e.y, R * (0.8 + k * 0.7), 0, Math.PI * 2); ctx.stroke();
+      } else {
+        ctx.globalAlpha = Math.max(0, 1 - e.t / 0.45);
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    for (const f of falling) drawBubble(f.x, f.y, f.c, 1, 0.9);
+    if (shot) drawBubble(shot.x, shot.y, shot.c);
+
+    // launcher
+    ctx.save();
+    ctx.translate(SHOOT_X, SHOOT_Y);
+    ctx.rotate(-angle);
+    ctx.fillStyle = '#134d60';
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(0, -7, 42, 14, 7) : ctx.rect(0, -7, 42, 14); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#0c3443';
+    ctx.strokeStyle = '#3cc8e8';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(SHOOT_X, SHOOT_Y, 22, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    drawBubble(SHOOT_X, SHOOT_Y, cur);
+
+    // next bubble + label
+    ctx.font = '800 9px Nunito, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#86b7c4';
+    ctx.fillText('NEXT', NEXT_X, NEXT_Y - 17);
+    drawBubble(NEXT_X, NEXT_Y, next, 0.72);
+
+    // shots until a new row drops
+    const total = shotsPerRow(), left = total - misses, gx = SHOOT_X + 76;
+    ctx.fillStyle = '#86b7c4';
+    ctx.fillText('NEW ROW IN', gx, NEXT_Y - 17);
+    for (let i = 0; i < total; i++) {
+      const x = gx - ((total - 1) * 10) / 2 + i * 10;
+      ctx.beginPath(); ctx.arc(x, NEXT_Y, 3.4, 0, Math.PI * 2);
+      ctx.fillStyle = i < left ? '#ffc145' : 'rgba(134,183,196,0.25)';
+      ctx.fill();
+    }
+
+    // score popups
+    ctx.font = '15px Bungee, "Arial Black", sans-serif';
+    for (const p of popups) {
+      ctx.globalAlpha = Math.max(0, 1 - p.t / 0.9);
+      ctx.fillStyle = '#ffc145';
+      ctx.fillText(p.text, p.x, p.y - p.t * 40);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ---------- loop ----------
+  function update(dt) {
+    if (state === 'play') {
+      if (keys.ArrowLeft) angle = Math.min(MAX_A, angle + 1.8 * dt);
+      if (keys.ArrowRight) angle = Math.max(MIN_A, angle - 1.8 * dt);
+      if (shot) stepShot(dt);
+    }
+    rowAnim = Math.max(0, rowAnim - ROW_H * dt * 6);
+    for (const f of falling) { f.vy += 1500 * dt; f.x += f.vx * dt; f.y += f.vy * dt; }
+    falling = falling.filter(f => f.y < H + R);
+    for (const e of effects) {
+      e.t += dt;
+      if (e.kind === 'drop' && e.t > 0) { e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 300 * dt; }
+    }
+    effects = effects.filter(e => e.t < 0.5);
+    for (const p of popups) p.t += dt;
+    popups = popups.filter(p => p.t < 0.9);
+    if (!reduceMotion) {
+      for (const a of ambient) {
+        a.y -= a.s * dt;
+        if (a.y < -5) { a.y = H + 5; a.x = Math.random() * W; }
+      }
+    }
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    update(dt);
+    if (sprites.length) draw(now / 1000);
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- input ----------
+  function toLogical(e) {
+    const r = cv.getBoundingClientRect();
+    return { x: ((e.clientX - r.left) * W) / r.width, y: ((e.clientY - r.top) * H) / r.height };
+  }
+  function aimAt(p) {
+    const a = Math.atan2(Math.max(SHOOT_Y - p.y, 1), p.x - SHOOT_X);
+    angle = Math.min(MAX_A, Math.max(MIN_A, a));
+  }
+
+  cv.addEventListener('pointerdown', e => {
+    const p = toLogical(e);
+    if ((p.x - NEXT_X) ** 2 + (p.y - NEXT_Y) ** 2 < 26 ** 2) { swap(); return; }
+    pointerDown = true;
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    aimAt(p);
+  });
+  cv.addEventListener('pointermove', e => {
+    if (e.pointerType === 'mouse' || pointerDown) aimAt(toLogical(e));
+  });
+  cv.addEventListener('pointerup', e => {
+    if (!pointerDown) return;
+    pointerDown = false;
+    const p = toLogical(e);
+    if (p.y < SHOOT_Y - 10) { aimAt(p); fire(); }
+  });
+  cv.addEventListener('pointercancel', () => { pointerDown = false; });
+
+  addEventListener('keydown', e => {
+    if (state !== 'play') return;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { keys[e.key] = true; e.preventDefault(); }
+    else if (e.key === ' ' || e.key === 'ArrowUp') { fire(); e.preventDefault(); }
+    else if (e.key === 'x' || e.key === 'X') swap();
+  });
+  addEventListener('keyup', e => { keys[e.key] = false; });
+
+  new ResizeObserver(resize).observe(cv);
+
+  // ---------- boot (keeps a game in progress across page updates) ----------
+  window.claude?.hot?.snapshot?.(() => ({ grid, parity, score, level, misses, cur, next, state }));
+
+  function start(data) {
+    if (data && Array.isArray(data.grid) && data.state === 'play') {
+      ({ grid, parity, score, level, misses, cur, next } = data);
+      state = 'play';
+      updateHud();
+    } else {
+      newGame();
+    }
+    resize();
+    requestAnimationFrame(frame);
+  }
+
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+
+</html>
