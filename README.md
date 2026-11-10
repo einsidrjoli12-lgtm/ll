@@ -2,24 +2,34 @@
 
 A phone-first bubble shooter in a single HTML file. Open `index.html` in any browser to play.
 
+## Modes
+Each mode is its own place under the sea, with its own music:
+
+| Mode | World | Colors | Shots before a new row | Aim line | Points |
+|---|---|---|---|---|---|
+| Easy | Sunny Lagoon | 3 | 8 | full | 1x |
+| Normal | Coral Reef | 4 | 6 | full | 1.5x |
+| Hard | Twilight Trench | 5 | 4 | short | 2x |
+| God | Abyssal Fury | 6 | 3, plus a new row every 10 s (faster each level) | none | 3x |
+
+Every level goes a little deeper (darker water, fewer light rays) and swaps its scenery
+(kelp, coral, rocks, volcanic vents).
+
+## Battle
+Race an AI rival on boards side by side. Pick the target score (any number, or 1,000 / 3,000 /
+5,000 / 10,000) and the rival (Rookie, Pro, Champion). First to the target wins; if your reef floods
+you lose. A combo of 3+ or dropping 4+ bubbles pushes a row onto the other board. Wins and losses
+are saved.
+
 ## Menus
-- **Start screen**: "Tap to start" (this first tap also switches on sound, which browsers require).
-- **Main menu**: Play and Settings, with the high score for every mode.
-- **Play** asks for a difficulty. Each mode shows its high score before you pick it.
-  - Easy: 3 colors, 8 shots before a new row, full aim line.
-  - Normal: 4 colors, 6 shots before a new row, 1.5x points.
-  - Hard: 5 colors, 4 shots before a new row, short aim line, 2x points.
-- **Settings**: sound effects on/off and volume, music on/off and volume, vibration, test sound.
-- **Pause** (button top right, or Esc/P): Resume, Settings, Quit to menu.
+Tap to start → main menu (Play, Battle, Settings) → pick a mode, each showing its high score.
+Settings: sound effects, music, both volumes, vibration, test sound. Pause with the button or Esc.
 
 ## Scoring and combos
 - 10 points per popped bubble, 20 per bubble that falls off, +50 for a single match of 6 or more.
-- **Combos**: pop on back-to-back shots to raise the multiplier for the next pop:
-  ×1 → ×1.5 → ×2 → ×2.5 … up to ×4. A shot that pops nothing resets it.
-  The COMBO meter next to the launcher shows the multiplier your next pop will get.
-- The difficulty multiplier (Normal 1.5x, Hard 2x) applies on top.
-- One high score per mode. When you beat your previous best mid-game the Best counter
-  flashes, a "New high score!" banner appears and a fanfare plays.
+- **Combos** start on the 3rd popping shot in a row: ×1.5, then ×2, ×2.5 … up to ×4. A shot that
+  pops nothing resets it. The COMBO meter by the launcher fills two dots, then shows the multiplier.
+- The mode multiplier applies on top. One high score per mode.
 
 ## Levels
 Every level is generated at random: a shape (full reef, funnel, hourglass, pillars, coral holes,
