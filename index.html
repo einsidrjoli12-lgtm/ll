@@ -1,4 +1,9 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06202b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}body{margin:0}</style>
 <title>Bubble Reef</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,13 +34,23 @@ body {
   display: flex;
   justify-content: center;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 12px;
+  padding-block: 8px;
+  --chrome: 130px; /* height taken by HUD, hint and gaps around the tank */
+  --safe-y: calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px));
 }
+@media (pointer: coarse) { body { --chrome: 96px; } }
+@media (max-height: 520px) { body { --chrome: 64px; } .hint { display: none; } }
 .cabinet {
-  width: min(100%, max(240px, calc((100vh - 140px) * 0.6286)));
-  width: min(100%, max(240px, calc((100dvh - 140px) * 0.6286)));
+  width: min(100%, max(150px, calc((100vh - var(--chrome)) * 0.6286)));
+  width: min(100%, max(150px, calc((100dvh - var(--chrome) - var(--safe-y)) * 0.6286)));
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -91,6 +106,7 @@ h1 {
   width: 100%;
   aspect-ratio: 352 / 560;
   max-width: 100%;
+  flex: none;
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 0 0 2px var(--line), 0 18px 40px rgba(0, 0, 0, 0.45);
@@ -145,7 +161,9 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
   cursor: pointer;
 }
 .btn.primary { background: var(--glow); color: var(--abyss); box-shadow: 0 4px 0 var(--glow-deep); }
-.btn.ghost { background: transparent; box-shadow: none; color: var(--muted); font-size: 0.85rem; padding: 8px 16px; }
+.btn { min-height: 48px; touch-action: manipulation; }
+.btn.ghost { background: transparent; box-shadow: none; color: var(--muted); font-size: 0.85rem; padding: 8px 20px; min-height: 44px; }
+.icon-btn { width: 44px; height: 44px; }
 .btn:active { transform: translateY(2px); }
 .diff {
   display: flex;
@@ -175,8 +193,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
 .setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-weight: 700; }
 .switch {
   position: relative;
-  width: 48px;
-  height: 28px;
+  width: 56px;
+  height: 32px;
   border-radius: 999px;
   border: 0;
   background: var(--line);
@@ -189,15 +207,21 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
   position: absolute;
   top: 4px;
   left: 4px;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--foam);
   transition: transform 0.15s;
 }
 .switch[aria-checked="true"] { background: var(--glow); }
-.switch[aria-checked="true"]::after { transform: translateX(20px); background: var(--abyss); }
-input[type="range"] { width: 130px; accent-color: var(--glow); }
+.switch[aria-checked="true"]::after { transform: translateX(24px); background: var(--abyss); }
+.setting { min-height: 44px; }
+input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
+.hint-touch { display: none; }
+@media (pointer: coarse) {
+  .hint-keys { display: none; }
+  .hint-touch { display: inline; }
+}
 .hint { margin: 0; font-size: 0.78rem; line-height: 1.4; color: var(--muted); text-align: center; }
 .hint kbd {
   font-family: var(--font-body);
@@ -263,6 +287,7 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
           <div class="setting"><label for="sfxVol">Effects volume</label><input type="range" id="sfxVol" min="0" max="100" value="80"></div>
           <div class="setting"><span id="lblMusic">Music</span><button class="switch" id="tMusic" type="button" role="switch" aria-labelledby="lblMusic" aria-checked="true" data-sfx="none"></button></div>
           <div class="setting"><label for="musicVol">Music volume</label><input type="range" id="musicVol" min="0" max="100" value="60"></div>
+          <div class="setting" id="rowVibrate" hidden><span id="lblVibrate">Vibration</span><button class="switch" id="tVibrate" type="button" role="switch" aria-labelledby="lblVibrate" aria-checked="true" data-sfx="none"></button></div>
           <button class="btn" id="btnTest" type="button" data-sfx="none">Play test sound</button>
         </div>
         <button class="btn ghost" id="settingsBack" type="button" data-sfx="back">Back</button>
@@ -288,8 +313,10 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
       </section>
     </div>
   </div>
-  <p class="hint">Aim and release to shoot. Match 3 to pop. Tap the small bubble to swap.
-    <br><kbd>←</kbd> <kbd>→</kbd> aim · <kbd>Space</kbd> shoot · <kbd>X</kbd> swap · <kbd>Esc</kbd> pause</p>
+  <p class="hint">
+    <span class="hint-touch">Drag to aim, lift to shoot. Tap the launcher to swap.</span>
+    <span class="hint-keys">Aim and release to shoot. Match 3 to pop. Click the launcher or the small bubble to swap.
+    <br><kbd>←</kbd> <kbd>→</kbd> aim · <kbd>Space</kbd> shoot · <kbd>X</kbd> swap · <kbd>Esc</kbd> pause</span></p>
 </div>
 
 <script>
@@ -339,7 +366,12 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
 
   // ---------- saved data ----------
   let bests = { easy: 0, normal: 0, hard: 0 };
-  let settings = { sound: true, music: true, sfxVol: 80, musicVol: 60 };
+  let settings = { sound: true, music: true, sfxVol: 80, musicVol: 60, vibrate: true };
+  const canVibrate = typeof navigator.vibrate === 'function';
+  function buzz(pattern) {
+    if (!settings.vibrate || !canVibrate) return;
+    try { navigator.vibrate(pattern); } catch (e) {}
+  }
   try { Object.assign(bests, JSON.parse(localStorage.getItem('bubble-reef-bests') || '{}')); } catch (e) {}
   try { Object.assign(settings, JSON.parse(localStorage.getItem('bubble-reef-settings') || '{}')); } catch (e) {}
   const saveBests = () => { try { localStorage.setItem('bubble-reef-bests', JSON.stringify(bests)); } catch (e) {} };
@@ -517,6 +549,8 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
     if (!audio.ctx) return;
     if (document.hidden) audio.ctx.suspend(); else audio.ctx.resume();
   });
+  // switching apps or locking the phone pauses the game
+  document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') pause(); });
 
   // ---------- grid helpers ----------
   const isOff = r => ((r + parity) & 1) === 1;
@@ -669,7 +703,7 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
     let lowest = -1;
     for (let r = 0; r < MAX_ROWS; r++) if (grid[r].some(v => v >= 0)) lowest = r;
     const now = lowest >= DEATH_ROW - 3;
-    if (now && !danger) sfx.danger();
+    if (now && !danger) { sfx.danger(); buzz([25, 60, 25]); }
     danger = now;
   }
 
@@ -744,6 +778,7 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
         if (i < 5) sfx.drop(i);
       });
       if (group.length >= 5 || loose.length) sfx.combo(group.length - 3 + loose.length);
+      buzz(group.length >= 5 || loose.length ? [20, 30, 20] : 15);
       const gained = Math.round((group.length * 10 + loose.length * 20) * diff().mult);
       addScore(gained);
       popups.push({ x: cx(r, c), y: cy(r), text: '+' + gained, t: 0 });
@@ -769,6 +804,7 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
     grid.pop();
     rowAnim = ROW_H;
     sfx.row();
+    buzz(45);
   }
 
   function overLine() {
@@ -785,6 +821,7 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
         newRecord = true;
         toast = { text: 'New high score!', t: 0 };
         sfx.record();
+        buzz([30, 40, 30, 40, 60]);
         const b = $('best');
         b.classList.remove('flash');
         void b.offsetWidth;
@@ -808,6 +845,7 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
     state = 'clear';
     danger = false;
     sfx.clear();
+    buzz([40, 30, 40]);
     setDuck(0.45);
     recordLine();
     showResult('Reef cleared', `Level ${level} done on ${diff().label}. Clearing bonus +${bonus}. Score ${score}.`, 'Next level');
@@ -817,6 +855,7 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
     state = 'over';
     danger = false;
     sfx.over();
+    buzz([80, 50, 80]);
     setTrack('menu');
     recordLine();
     showResult('The reef flooded', `Bubbles crossed the red line. You scored ${score} on ${diff().label}. High score: ${bests[diffKey]}.`, 'Play again');
@@ -886,7 +925,13 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
     $('tMusic').setAttribute('aria-checked', String(settings.music));
     $('sfxVol').value = settings.sfxVol;
     $('musicVol').value = settings.musicVol;
+    $('tVibrate').setAttribute('aria-checked', String(settings.vibrate));
+    $('rowVibrate').hidden = !canVibrate;
   }
+  $('tVibrate').addEventListener('click', () => {
+    settings.vibrate = !settings.vibrate; syncSettingsUI(); saveSettings();
+    if (settings.vibrate) { sfx.toggleOn(); buzz(30); } else sfx.toggleOff();
+  });
 
   overlay.addEventListener('click', e => {
     const b = e.target.closest('button');
@@ -983,7 +1028,7 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
   function resize() {
     const rect = cv.getBoundingClientRect();
     if (!rect.width) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5); // sharp on phones without overloading them
     cv.width = Math.round(rect.width * dpr);
     cv.height = Math.round(rect.height * dpr);
     scale = cv.width / W;
@@ -1185,7 +1230,9 @@ input[type="range"] { width: 130px; accent-color: var(--glow); }
   cv.addEventListener('pointerdown', e => {
     if (state !== 'play') return;
     const p = toLogical(e);
-    if ((p.x - NEXT_X) ** 2 + (p.y - NEXT_Y) ** 2 < 26 ** 2) { swap(); return; }
+    const nearNext = (p.x - NEXT_X) ** 2 + (p.y - NEXT_Y) ** 2 < 34 ** 2;
+    const nearLauncher = (p.x - SHOOT_X) ** 2 + (p.y - SHOOT_Y) ** 2 < 30 ** 2;
+    if (nearNext || nearLauncher) { swap(); buzz(10); return; }
     pointerDown = true;
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
     aimAt(p);

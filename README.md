@@ -19,6 +19,13 @@ coral holes, diamond, staircase, wave) combined with a color pattern (clusters, 
 diagonals, columns, scatter, rings) and a random set of colors. Later levels add colors,
 rows and fewer shots between new rows.
 
+## Phones
+Built phone-first: the board fills the screen, touch targets are at least 44px, and the page
+doesn't zoom, scroll or select text while you play. Drag to aim and lift to shoot; tap the
+launcher (or the small Next bubble) to swap. The game pauses itself when you switch apps or lock
+the phone. On Android there's a Vibration setting for pops, new rows, danger and high scores.
+You can add it to your home screen to play full screen.
+
 ## How to play
 - Aim with the mouse or a finger, release to shoot. Bubbles bounce off the side walls.
 - Match 3 or more of one color to pop them. Bubbles left hanging fall off for bonus points.
