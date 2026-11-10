@@ -1,0 +1,9 @@
+{
+  "appId": "com.example.bubblebash",
+  "appName": "Bubble Bash",
+  "webDir": "www",
+  "backgroundColor": "#06202b",
+  "ios": {
+    "contentInset": "never"
+  }
+}

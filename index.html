@@ -4,7 +4,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}body{margin:0}</style>
-<title>Bubble Reef</title>
+<title>Bubble Bash</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -240,7 +240,7 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
 
 <div class="cabinet">
   <header class="hud">
-    <h1>Bubble Reef</h1>
+    <h1>Bubble Bash</h1>
     <div class="hud-right">
       <div class="stats">
         <div class="stat"><span>Level</span><b id="level">1</b></div>
@@ -254,14 +254,14 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
     <canvas id="game" aria-label="Bubble shooter board"></canvas>
     <div class="overlay" id="overlay">
       <section class="screen" id="scr-start">
-        <h2 class="logo">Bubble<br>Reef</h2>
+        <h2 class="logo">Bubble<br>Bash</h2>
         <p class="tagline">Pop the reef before it floods.</p>
         <button class="btn primary big" id="btnStart" type="button" data-sfx="none">Tap to start</button>
         <p class="small">Sound on · turn your volume up</p>
       </section>
 
       <section class="screen" id="scr-main" hidden>
-        <h2 class="logo">Bubble<br>Reef</h2>
+        <h2 class="logo">Bubble<br>Bash</h2>
         <p class="tagline">Pop the reef before it floods.</p>
         <div class="stack">
           <button class="btn primary" id="btnPlay" type="button">Play</button>
@@ -272,6 +272,7 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
 
       <section class="screen" id="scr-diff" hidden>
         <h2>Choose difficulty</h2>
+        <p class="small">Pop on back-to-back shots to build a combo: ×1.5, ×2, up to ×4 points.</p>
         <div class="stack wide">
           <button class="diff" type="button" data-diff="easy" data-sfx="none"><b>Easy <em>●○○</em></b><span>3 colors, 8 shots before a new row, full aim line</span><span class="rec" id="rec-easy">High score 0</span></button>
           <button class="diff" type="button" data-diff="normal" data-sfx="none"><b>Normal <em>●●○</em></b><span>4 colors, 6 shots before a new row, 1.5× points</span><span class="rec" id="rec-normal">High score 0</span></button>
@@ -315,7 +316,7 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
   </div>
   <p class="hint">
     <span class="hint-touch">Drag to aim, lift to shoot. Tap the launcher to swap.</span>
-    <span class="hint-keys">Aim and release to shoot. Match 3 to pop. Click the launcher or the small bubble to swap.
+    <span class="hint-keys">Match 3 to pop. Pop on back-to-back shots for combo points. Click the launcher to swap.
     <br><kbd>←</kbd> <kbd>→</kbd> aim · <kbd>Space</kbd> shoot · <kbd>X</kbd> swap · <kbd>Esc</kbd> pause</span></p>
 </div>
 
@@ -367,15 +368,54 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
   // ---------- saved data ----------
   let bests = { easy: 0, normal: 0, hard: 0 };
   let settings = { sound: true, music: true, sfxVol: 80, musicVol: 60, vibrate: true };
+
+  // ---------- haptics ----------
+  // App Store / Play Store build (Capacitor): native Taptic Engine via @capacitor/haptics.
+  // Android browsers: navigator.vibrate. iPhone Safari (iOS 18+): toggling a hidden
+  // <input switch> gives a light system haptic tick, the only buzz Safari allows a web page.
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const canVibrate = typeof navigator.vibrate === 'function';
-  function buzz(pattern) {
-    if (!settings.vibrate || !canVibrate) return;
-    try { navigator.vibrate(pattern); } catch (e) {}
+  const nativeHaptics = () => window.Capacitor?.isNativePlatform?.() && window.Capacitor.Plugins?.Haptics;
+  let iosSwitch = null;
+  if (isIOS && !canVibrate) {
+    iosSwitch = document.createElement('label');
+    iosSwitch.setAttribute('aria-hidden', 'true');
+    iosSwitch.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.setAttribute('switch', '');
+    input.tabIndex = -1;
+    iosSwitch.appendChild(input);
+    document.body.appendChild(iosSwitch);
   }
-  try { Object.assign(bests, JSON.parse(localStorage.getItem('bubble-reef-bests') || '{}')); } catch (e) {}
-  try { Object.assign(settings, JSON.parse(localStorage.getItem('bubble-reef-settings') || '{}')); } catch (e) {}
-  const saveBests = () => { try { localStorage.setItem('bubble-reef-bests', JSON.stringify(bests)); } catch (e) {} };
-  const saveSettings = () => { try { localStorage.setItem('bubble-reef-settings', JSON.stringify(settings)); } catch (e) {} };
+  const hasHaptics = () => !!(nativeHaptics() || canVibrate || iosSwitch);
+  const HAPTIC = {
+    tap:    { vib: 10, impact: 'LIGHT', ticks: 1 },
+    shoot:  { vib: 8, impact: 'LIGHT', ticks: 1 },
+    pop:    { vib: 15, impact: 'MEDIUM', ticks: 1 },
+    combo:  { vib: [20, 30, 20], impact: 'HEAVY', ticks: 2 },
+    row:    { vib: 45, impact: 'HEAVY', ticks: 1 },
+    danger: { vib: [25, 60, 25], note: 'WARNING', ticks: 2 },
+    record: { vib: [30, 40, 30, 40, 60], note: 'SUCCESS', ticks: 3 },
+    clear:  { vib: [40, 30, 40], note: 'SUCCESS', ticks: 2 },
+    over:   { vib: [80, 50, 80], note: 'ERROR', ticks: 3 },
+  };
+  function haptic(kind) {
+    if (!settings.vibrate) return;
+    const h = HAPTIC[kind];
+    const native = nativeHaptics();
+    try {
+      if (native) { h.note ? native.notification({ type: h.note }) : native.impact({ style: h.impact }); }
+      else if (canVibrate) navigator.vibrate(h.vib);
+      else if (iosSwitch) for (let i = 0; i < h.ticks; i++) setTimeout(() => iosSwitch.click(), i * 80);
+    } catch (e) {}
+  }
+  // scores and settings saved under the old Bubble Reef name carry over
+  const load = (key, old) => { try { return JSON.parse(localStorage.getItem(key) || localStorage.getItem(old) || '{}'); } catch (e) { return {}; } };
+  Object.assign(bests, load('bubble-bash-bests', 'bubble-reef-bests'));
+  Object.assign(settings, load('bubble-bash-settings', 'bubble-reef-settings'));
+  const saveBests = () => { try { localStorage.setItem('bubble-bash-bests', JSON.stringify(bests)); } catch (e) {} };
+  const saveSettings = () => { try { localStorage.setItem('bubble-bash-settings', JSON.stringify(settings)); } catch (e) {} };
 
   // ---------- audio ----------
   // All sound is synthesized with Web Audio. Browsers keep audio locked until a tap or key press,
@@ -387,7 +427,6 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
     menu: { bpm: 72, prog: [[50, 57, 60, 65], [46, 53, 57, 62], [43, 50, 55, 58], [45, 52, 57, 61]], arp: 0.45, drums: false },
     game: { bpm: 104, prog: [[57, 60, 64, 67], [53, 57, 60, 64], [48, 52, 55, 59], [55, 59, 62, 65]], arp: 0.8, drums: true },
   };
-  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   function ensureAudio() {
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -502,6 +541,7 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
       noise({ dur: 0.025, vol: 0.05, freq: 5000, delay: i * 0.035 });
     },
     drop: i => tone({ freq: 800, to: 180, type: 'triangle', dur: 0.3, vol: 0.07, delay: 0.15 + i * 0.05 }),
+    streak: k => arp([72, 76, 79, 84].map(n => n + Math.min(k, 8) * 2), 0.05, { type: 'square', dur: 0.14, vol: 0.06, delay: 0.1 }),
     combo: n => arp([72, 76, 79, 84, 88].slice(0, Math.min(5, n)), 0.05, { type: 'square', dur: 0.12, vol: 0.05, delay: 0.12 }),
     row: () => { tone({ freq: 120, to: 45, dur: 0.45, vol: 0.35 }); noise({ dur: 0.3, vol: 0.08, filter: 'lowpass', freq: 400 }); },
     swap: () => tone({ freq: 440, to: 660, dur: 0.08, vol: 0.11 }),
@@ -682,15 +722,18 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
     cur = pickColor(); next = pickColor();
     banner = { title: 'Level ' + level, sub: name, t: 0 };
     danger = false;
+    combo = 0;
     updateHud();
   }
 
-  let prevBest = 0, newRecord = false, toast = null;
+  let prevBest = 0, newRecord = false, toast = null, combo = 0, bestCombo = 0;
+  const comboMult = k => Math.min(4, 1 + 0.5 * k); // multiplier for the next pop after k pops in a row
   function startGame(key) {
     diffKey = key;
     score = 0; level = 1;
     prevBest = bests[diffKey];
     newRecord = false;
+    bestCombo = 0;
     setupLevel();
     state = 'play';
     setTrack('game');
@@ -703,7 +746,7 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
     let lowest = -1;
     for (let r = 0; r < MAX_ROWS; r++) if (grid[r].some(v => v >= 0)) lowest = r;
     const now = lowest >= DEATH_ROW - 3;
-    if (now && !danger) { sfx.danger(); buzz([25, 60, 25]); }
+    if (now && !danger) { sfx.danger(); haptic('danger'); }
     danger = now;
   }
 
@@ -727,6 +770,7 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
     cur = next;
     next = pickColor();
     sfx.shoot();
+    haptic('shoot');
   }
 
   function swap() {
@@ -777,12 +821,24 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
         falling.push({ x: cx(a, b), y: cy(a), vx: (Math.random() - 0.5) * 90, vy: -40 - Math.random() * 90, c: v });
         if (i < 5) sfx.drop(i);
       });
-      if (group.length >= 5 || loose.length) sfx.combo(group.length - 3 + loose.length);
-      buzz(group.length >= 5 || loose.length ? [20, 30, 20] : 15);
-      const gained = Math.round((group.length * 10 + loose.length * 20) * diff().mult);
+      const mult = comboMult(combo);
+      combo++;
+      bestCombo = Math.max(bestCombo, combo);
+      const big = group.length >= 6 ? 50 : 0; // bonus for one huge match
+      const gained = Math.round(((group.length * 10 + loose.length * 20) * mult + big) * diff().mult);
       addScore(gained);
       popups.push({ x: cx(r, c), y: cy(r), text: '+' + gained, t: 0 });
+      if (combo >= 2) {
+        popups.push({ x: Math.min(W - 60, Math.max(60, cx(r, c))), y: cy(r) + 26, text: `COMBO ×${mult}`, t: 0, color: '#ff85cf' });
+        sfx.streak(combo);
+        haptic('combo');
+      } else if (group.length >= 5 || loose.length) {
+        sfx.combo(group.length - 3 + loose.length);
+        haptic('combo');
+      } else haptic('pop');
     } else {
+      if (combo >= 3) popups.push({ x: SHOOT_X, y: SHOOT_Y - 60, text: 'COMBO LOST', t: 0, color: '#86b7c4' });
+      combo = 0;
       sfx.stick();
       misses++;
       if (misses >= shotsPerRow()) { misses = 0; addRow(); }
@@ -804,7 +860,7 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
     grid.pop();
     rowAnim = ROW_H;
     sfx.row();
-    buzz(45);
+    haptic('row');
   }
 
   function overLine() {
@@ -821,7 +877,7 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
         newRecord = true;
         toast = { text: 'New high score!', t: 0 };
         sfx.record();
-        buzz([30, 40, 30, 40, 60]);
+        haptic('record');
         const b = $('best');
         b.classList.remove('flash');
         void b.offsetWidth;
@@ -845,20 +901,20 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
     state = 'clear';
     danger = false;
     sfx.clear();
-    buzz([40, 30, 40]);
+    haptic('clear');
     setDuck(0.45);
     recordLine();
-    showResult('Reef cleared', `Level ${level} done on ${diff().label}. Clearing bonus +${bonus}. Score ${score}.`, 'Next level');
+    showResult('Reef cleared', `Level ${level} done on ${diff().label}. Clearing bonus +${bonus}. Score ${score}. Best combo ${bestCombo} in a row.`, 'Next level');
   }
 
   function endGame() {
     state = 'over';
     danger = false;
     sfx.over();
-    buzz([80, 50, 80]);
+    haptic('over');
     setTrack('menu');
     recordLine();
-    showResult('The reef flooded', `Bubbles crossed the red line. You scored ${score} on ${diff().label}. High score: ${bests[diffKey]}.`, 'Play again');
+    showResult('The reef flooded', `Bubbles crossed the red line. You scored ${score} on ${diff().label} with a best combo of ${bestCombo} in a row. High score: ${bests[diffKey]}.`, 'Play again');
   }
 
   function updateHud() {
@@ -926,11 +982,11 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
     $('sfxVol').value = settings.sfxVol;
     $('musicVol').value = settings.musicVol;
     $('tVibrate').setAttribute('aria-checked', String(settings.vibrate));
-    $('rowVibrate').hidden = !canVibrate;
+    $('rowVibrate').hidden = !hasHaptics();
   }
   $('tVibrate').addEventListener('click', () => {
     settings.vibrate = !settings.vibrate; syncSettingsUI(); saveSettings();
-    if (settings.vibrate) { sfx.toggleOn(); buzz(30); } else sfx.toggleOff();
+    if (settings.vibrate) { sfx.toggleOn(); haptic('tap'); } else sfx.toggleOff();
   });
 
   overlay.addEventListener('click', e => {
@@ -1141,10 +1197,19 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
       ctx.fill();
     }
 
+    // combo meter: multiplier your next pop will get
+    ctx.textAlign = 'center';
+    ctx.font = '800 9px Nunito, system-ui, sans-serif';
+    ctx.fillStyle = '#86b7c4';
+    ctx.fillText('COMBO', 38, NEXT_Y - 17);
+    ctx.font = '16px Bungee, "Arial Black", sans-serif';
+    ctx.fillStyle = combo ? '#ff85cf' : 'rgba(134,183,196,0.5)';
+    ctx.fillText('×' + comboMult(combo), 38, NEXT_Y + 6);
+
     ctx.font = '15px Bungee, "Arial Black", sans-serif';
     for (const p of popups) {
       ctx.globalAlpha = Math.max(0, 1 - p.t / 0.9);
-      ctx.fillStyle = '#ffc145';
+      ctx.fillStyle = p.color || '#ffc145';
       ctx.fillText(p.text, p.x, p.y - p.t * 40);
     }
     ctx.globalAlpha = 1;
@@ -1232,7 +1297,7 @@ input[type="range"] { width: 130px; height: 32px; accent-color: var(--glow); }
     const p = toLogical(e);
     const nearNext = (p.x - NEXT_X) ** 2 + (p.y - NEXT_Y) ** 2 < 34 ** 2;
     const nearLauncher = (p.x - SHOOT_X) ** 2 + (p.y - SHOOT_Y) ** 2 < 30 ** 2;
-    if (nearNext || nearLauncher) { swap(); buzz(10); return; }
+    if (nearNext || nearLauncher) { swap(); haptic('tap'); return; }
     pointerDown = true;
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
     aimAt(p);
